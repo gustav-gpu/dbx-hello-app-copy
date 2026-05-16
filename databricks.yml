@@ -1,0 +1,17 @@
+bundle:
+  name: dbx-hello-app
+
+resources:
+  apps:
+    dbx_hello_app:
+      name: dbx-hello-app
+      source_code_path: .
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: 9973669cb20e570a
+            permission: CAN_USE
+      config:
+        env:
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse

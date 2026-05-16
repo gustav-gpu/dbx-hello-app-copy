@@ -1,0 +1,3 @@
+databricks-sdk
+databricks-sql-connector
+psycopg[binary]
