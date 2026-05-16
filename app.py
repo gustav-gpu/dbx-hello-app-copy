@@ -235,26 +235,24 @@ def ensure_schema_and_seed(conn):
 
         seed_rows = build_training_register(100)
         values_sql = []
+        timestamp_expr = "NOW()" if USE_POSTGRES else "current_timestamp()"
         for row in seed_rows:
-            values_sql.append(
-                "("
-                + ", ".join(
-                    [
-                        sql_quote(row["employee_id"]),
-                        sql_quote(row["name"]),
-                        sql_quote(row["department"]),
-                        sql_quote(row["role"]),
-                        str(row["years_experience"]),
-                        sql_quote(row["skills"]),
-                        sql_quote(row["training_needs"]),
-                        sql_quote(row["recommended_courses"]),
-                        sql_quote(row["priority"]),
-                        str(row["target_months"]),
-                        "current_timestamp()",
-                    ]
-                )
-                + ")"
+            tuple_values = ", ".join(
+                [
+                    sql_quote(row["employee_id"]),
+                    sql_quote(row["name"]),
+                    sql_quote(row["department"]),
+                    sql_quote(row["role"]),
+                    str(row["years_experience"]),
+                    sql_quote(row["skills"]),
+                    sql_quote(row["training_needs"]),
+                    sql_quote(row["recommended_courses"]),
+                    sql_quote(row["priority"]),
+                    str(row["target_months"]),
+                    timestamp_expr,
+                ]
             )
+            values_sql.append(f"({tuple_values})")
         cur.execute(
             f"""
             INSERT INTO {TABLE_FQN} (
