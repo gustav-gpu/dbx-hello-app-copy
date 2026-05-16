@@ -1,100 +1,34 @@
 import html
-import json
 import os
 import random
-import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib import request as urlrequest
-from urllib.error import URLError
 from urllib.parse import parse_qs, quote, urlparse
 
-from databricks import sql
-from databricks.sdk.core import Config
 import psycopg
 
 
 FIRST_NAMES = [
-    "Ava",
-    "Noah",
-    "Mia",
-    "Liam",
-    "Ella",
-    "Ethan",
-    "Sofia",
-    "Leo",
-    "Nora",
-    "Jack",
-    "Ivy",
-    "Lucas",
-    "Chloe",
-    "Mason",
-    "Grace",
-    "Aria",
-    "Owen",
-    "Harper",
-    "Zoe",
-    "Ryan",
+    "Ava", "Noah", "Mia", "Liam", "Ella", "Ethan", "Sofia", "Leo", "Nora", "Jack",
+    "Ivy", "Lucas", "Chloe", "Mason", "Grace", "Aria", "Owen", "Harper", "Zoe", "Ryan",
 ]
 LAST_NAMES = [
-    "Andersson",
-    "Berg",
-    "Lind",
-    "Holm",
-    "Svensson",
-    "Larsson",
-    "Karlsson",
-    "Dahl",
-    "Eriksson",
-    "Nyberg",
-    "Miller",
-    "Davis",
-    "Nguyen",
-    "Patel",
-    "Kim",
-    "Garcia",
-    "Brown",
-    "Wilson",
-    "Clark",
-    "Lopez",
+    "Andersson", "Berg", "Lind", "Holm", "Svensson", "Larsson", "Karlsson", "Dahl",
+    "Eriksson", "Nyberg", "Miller", "Davis", "Nguyen", "Patel", "Kim", "Garcia",
+    "Brown", "Wilson", "Clark", "Lopez",
 ]
 DEPARTMENTS = [
-    "Engineering",
-    "Data",
-    "Finance",
-    "HR",
-    "Marketing",
-    "Sales",
-    "Operations",
-    "Customer Success",
+    "Engineering", "Data", "Finance", "HR", "Marketing", "Sales", "Operations", "Customer Success",
 ]
 ROLES = ["Analyst", "Specialist", "Coordinator", "Manager", "Engineer", "Lead"]
 SKILLS = [
-    "Python",
-    "SQL",
-    "Spark",
-    "Databricks",
-    "Power BI",
-    "Tableau",
-    "Project Management",
-    "Stakeholder Communication",
-    "Machine Learning",
-    "Data Modeling",
-    "Financial Analysis",
-    "Presentation",
-    "Customer Discovery",
-    "Forecasting",
+    "Python", "SQL", "Spark", "Databricks", "Power BI", "Tableau", "Project Management",
+    "Stakeholder Communication", "Machine Learning", "Data Modeling", "Financial Analysis",
+    "Presentation", "Customer Discovery", "Forecasting",
 ]
 TRAINING_TOPICS = [
-    "Advanced SQL Optimization",
-    "Databricks Lakehouse Fundamentals",
-    "Machine Learning Essentials",
-    "Data Storytelling",
-    "Leadership for New Managers",
-    "Agile Delivery",
-    "Cloud Cost Optimization",
-    "Data Governance and Compliance",
-    "Strategic Communication",
-    "Time and Priority Management",
+    "Advanced SQL Optimization", "Databricks Lakehouse Fundamentals", "Machine Learning Essentials",
+    "Data Storytelling", "Leadership for New Managers", "Agile Delivery", "Cloud Cost Optimization",
+    "Data Governance and Compliance", "Strategic Communication", "Time and Priority Management",
 ]
 COURSE_LIBRARY = [
     "Course: Databricks for Data Professionals",
@@ -109,52 +43,15 @@ COURSE_LIBRARY = [
     "Course: Forecasting and Scenario Modeling",
 ]
 
-USE_POSTGRES = bool(os.environ.get("DATABASE_URL"))
-TABLE_FQN = os.environ.get(
-    "APP_TABLE_FQN",
-    "public.tallent_training_register" if USE_POSTGRES else "workspace.default.tallent_training_register",
-)
-DEFAULT_WAREHOUSE_ID = "9973669cb20e570a"
+TABLE_FQN = os.environ.get("APP_TABLE_FQN", "public.tallent_training_register")
 SCHEMA_INITIALIZED = False
 
 
-def get_workspace_host():
-    host = os.environ.get("DATABRICKS_HOST")
-    if not host:
-        raise RuntimeError("DATABRICKS_HOST is missing in app environment.")
-    host = host.strip()
-    if not host.startswith("http://") and not host.startswith("https://"):
-        host = f"https://{host}"
-    return host.rstrip("/")
-
-
-def get_sql_host_name():
-    host = os.environ.get("DATABRICKS_HOST")
-    if not host:
-        host = Config().host
-    parsed = urlparse(host)
-    if parsed.scheme and parsed.netloc:
-        return parsed.netloc
-    return host.replace("https://", "").replace("http://", "")
-
-
-def get_connection(warehouse_id):
-    if USE_POSTGRES:
-        db_url = os.environ.get("DATABASE_URL", "").strip()
-        if not db_url:
-            raise RuntimeError("Missing DATABASE_URL for local Neon/Postgres mode.")
-        return psycopg.connect(db_url)
-
-    cfg = Config()
-    effective_warehouse_id = (warehouse_id or DEFAULT_WAREHOUSE_ID).strip()
-    if not effective_warehouse_id:
-        raise RuntimeError("Missing SQL warehouse id and default warehouse fallback is empty.")
-
-    return sql.connect(
-        server_hostname=get_sql_host_name(),
-        http_path=f"/sql/1.0/warehouses/{effective_warehouse_id}",
-        credentials_provider=lambda: cfg.authenticate,
-    )
+def get_connection():
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if not db_url:
+        raise RuntimeError("Missing DATABASE_URL. This app runs in Neon/Postgres mode only.")
+    return psycopg.connect(db_url)
 
 
 def build_training_register(employee_count=100):
@@ -169,12 +66,8 @@ def build_training_register(employee_count=100):
                 "role": rng.choice(ROLES),
                 "years_experience": rng.randint(0, 12),
                 "skills": ", ".join(rng.sample(SKILLS, k=rng.randint(3, 6))),
-                "training_needs": ", ".join(
-                    rng.sample(TRAINING_TOPICS, k=rng.randint(2, 4))
-                ),
-                "recommended_courses": ", ".join(
-                    rng.sample(COURSE_LIBRARY, k=rng.randint(2, 4))
-                ),
+                "training_needs": ", ".join(rng.sample(TRAINING_TOPICS, k=rng.randint(2, 4))),
+                "recommended_courses": ", ".join(rng.sample(COURSE_LIBRARY, k=rng.randint(2, 4))),
                 "priority": rng.choice(["High", "Medium", "Low"]),
                 "target_months": rng.choice([1, 2, 3, 6, 9]),
             }
@@ -192,105 +85,70 @@ def ensure_schema_and_seed(conn):
         return
 
     with conn.cursor() as cur:
-        if USE_POSTGRES:
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS public.tallent_training_register (
-                    employee_id TEXT PRIMARY KEY,
-                    full_name TEXT NOT NULL,
-                    department TEXT NOT NULL,
-                    role_title TEXT NOT NULL,
-                    years_experience INTEGER NOT NULL,
-                    skills TEXT NOT NULL,
-                    training_needs TEXT NOT NULL,
-                    recommended_courses TEXT NOT NULL,
-                    priority TEXT NOT NULL,
-                    target_months INTEGER NOT NULL,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                )
-                """
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS public.tallent_training_register (
+                employee_id TEXT PRIMARY KEY,
+                full_name TEXT NOT NULL,
+                department TEXT NOT NULL,
+                role_title TEXT NOT NULL,
+                years_experience INTEGER NOT NULL,
+                skills TEXT NOT NULL,
+                training_needs TEXT NOT NULL,
+                recommended_courses TEXT NOT NULL,
+                priority TEXT NOT NULL,
+                target_months INTEGER NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
             )
-        else:
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS workspace.default.tallent_training_register (
-                    employee_id STRING,
-                    full_name STRING,
-                    department STRING,
-                    role_title STRING,
-                    years_experience INT,
-                    skills STRING,
-                    training_needs STRING,
-                    recommended_courses STRING,
-                    priority STRING,
-                    target_months INT,
-                    created_at TIMESTAMP
-                ) USING DELTA
-                """
-            )
+            """
+        )
         cur.execute(f"SELECT COUNT(*) FROM {TABLE_FQN}")
         count = cur.fetchone()[0]
-        if count != 0:
-            return
-
-        seed_rows = build_training_register(100)
-        values_sql = []
-        timestamp_expr = "NOW()" if USE_POSTGRES else "current_timestamp()"
-        for row in seed_rows:
-            tuple_values = ", ".join(
-                [
-                    sql_quote(row["employee_id"]),
-                    sql_quote(row["name"]),
-                    sql_quote(row["department"]),
-                    sql_quote(row["role"]),
-                    str(row["years_experience"]),
-                    sql_quote(row["skills"]),
-                    sql_quote(row["training_needs"]),
-                    sql_quote(row["recommended_courses"]),
-                    sql_quote(row["priority"]),
-                    str(row["target_months"]),
-                    timestamp_expr,
-                ]
+        if count == 0:
+            seed_rows = build_training_register(100)
+            values_sql = []
+            for row in seed_rows:
+                tuple_values = ", ".join(
+                    [
+                        sql_quote(row["employee_id"]),
+                        sql_quote(row["name"]),
+                        sql_quote(row["department"]),
+                        sql_quote(row["role"]),
+                        str(row["years_experience"]),
+                        sql_quote(row["skills"]),
+                        sql_quote(row["training_needs"]),
+                        sql_quote(row["recommended_courses"]),
+                        sql_quote(row["priority"]),
+                        str(row["target_months"]),
+                        "NOW()",
+                    ]
+                )
+                values_sql.append(f"({tuple_values})")
+            cur.execute(
+                f"""
+                INSERT INTO {TABLE_FQN} (
+                    employee_id, full_name, department, role_title, years_experience,
+                    skills, training_needs, recommended_courses, priority, target_months, created_at
+                ) VALUES
+                """
+                + ",\n".join(values_sql)
             )
-            values_sql.append(f"({tuple_values})")
-        cur.execute(
-            f"""
-            INSERT INTO {TABLE_FQN} (
-                employee_id, full_name, department, role_title, years_experience,
-                skills, training_needs, recommended_courses, priority, target_months, created_at
-            ) VALUES
-            """
-            + ",\n".join(values_sql)
-        )
-    if USE_POSTGRES:
-        conn.commit()
+    conn.commit()
     SCHEMA_INITIALIZED = True
 
 
 def fetch_dashboard_data(conn):
     with conn.cursor() as cur:
-        if USE_POSTGRES:
-            cur.execute(
-                f"""
-                SELECT
-                    COUNT(*) AS total_employees,
-                    SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) AS high_priority,
-                    AVG(array_length(string_to_array(skills, ', '), 1)) AS avg_skills,
-                    AVG(array_length(string_to_array(training_needs, ', '), 1)) AS avg_needs
-                FROM {TABLE_FQN}
-                """
-            )
-        else:
-            cur.execute(
-                f"""
-                SELECT
-                    COUNT(*) AS total_employees,
-                    SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) AS high_priority,
-                    AVG(size(split(skills, ', '))) AS avg_skills,
-                    AVG(size(split(training_needs, ', '))) AS avg_needs
-                FROM {TABLE_FQN}
-                """
-            )
+        cur.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total_employees,
+                SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) AS high_priority,
+                AVG(array_length(string_to_array(skills, ', '), 1)) AS avg_skills,
+                AVG(array_length(string_to_array(training_needs, ', '), 1)) AS avg_needs
+            FROM {TABLE_FQN}
+            """
+        )
         stats = cur.fetchone()
         cur.execute(
             f"""
@@ -313,257 +171,10 @@ def fetch_dashboard_data(conn):
     return stats, department_rows, employee_rows
 
 
-def fetch_training_context(conn, limit=300):
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT employee_id, full_name, department, role_title, years_experience,
-                   skills, training_needs, recommended_courses, priority, target_months
-            FROM {TABLE_FQN}
-            ORDER BY employee_id
-            LIMIT {int(limit)}
-            """
-        )
-        rows = cur.fetchall()
-
-    return [
-        {
-            "employee_id": row[0],
-            "name": row[1],
-            "department": row[2],
-            "role": row[3],
-            "years_experience": row[4],
-            "skills": row[5],
-            "training_needs": row[6],
-            "recommended_courses": row[7],
-            "priority": row[8],
-            "target_months": row[9],
-        }
-        for row in rows
-    ]
-
-
-def ask_deepseek(question, context_rows):
-    endpoint_name = os.environ.get("DATABRICKS_AI_ENDPOINT", "").strip()
-    if not endpoint_name:
-        raise RuntimeError("DATABRICKS_AI_ENDPOINT is not set in app environment.")
-
-    cfg = Config()
-    host = cfg.host.rstrip("/")
-
-    payload = {
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are an HR analytics copilot speaking to a manager. "
-                    "Use only the provided dataset. Respond in a natural, helpful tone with: "
-                    "(1) a direct answer, (2) key evidence with employee IDs, and "
-                    "(3) practical next actions."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Question: {question}\n\n"
-                    "Employee training register JSON:\n"
-                    f"{json.dumps(context_rows, ensure_ascii=True)}"
-                ),
-            },
-        ],
-        "temperature": 0.2,
-    }
-
-    req = urlrequest.Request(
-        f"{host}/serving-endpoints/{endpoint_name}/invocations",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": cfg.authenticate()["Authorization"],
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    with urlrequest.urlopen(req, timeout=60) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-
-    choices = body.get("choices", [])
-    if not choices:
-        raise RuntimeError("DeepSeek returned no answer.")
-    answer = choices[0].get("message", {}).get("content", "").strip()
-    if not answer:
-        raise RuntimeError("DeepSeek returned an empty response.")
-    return answer
-
-
-def ask_openai_compatible(question, context_rows):
-    base_url = os.environ.get("OPENAI_COMPAT_BASE_URL", "").strip().rstrip("/")
-    api_key = os.environ.get("OPENAI_COMPAT_API_KEY", "").strip()
-    model = os.environ.get("OPENAI_COMPAT_MODEL", "deepseek-chat").strip()
-
-    if not base_url:
-        raise RuntimeError("OPENAI_COMPAT_BASE_URL is not set.")
-    if not api_key:
-        raise RuntimeError("OPENAI_COMPAT_API_KEY is not set.")
-
-    payload = {
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are an HR analytics copilot speaking to a manager. "
-                    "Use only the provided dataset. Respond in a natural, helpful tone with: "
-                    "(1) a direct answer, (2) key evidence with employee IDs, and "
-                    "(3) practical next actions."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Question: {question}\n\n"
-                    "Employee training register JSON:\n"
-                    f"{json.dumps(context_rows, ensure_ascii=True)}"
-                ),
-            },
-        ],
-    }
-
-    req = urlrequest.Request(
-        f"{base_url}/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    with urlrequest.urlopen(req, timeout=60) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-
-    choices = body.get("choices", [])
-    if not choices:
-        raise RuntimeError(f"OpenAI-compatible provider returned no choices: {body}")
-    answer = choices[0].get("message", {}).get("content", "").strip()
-    if not answer:
-        raise RuntimeError(f"OpenAI-compatible provider returned empty response: {body}")
-    return answer
-
-
-def ask_local_analytics(question, context_rows):
-    q = question.strip().lower()
-    if not context_rows:
-        return (
-            "I checked the register, but there are no employee records yet. "
-            "Add at least one employee and I can analyze patterns right away."
-        )
-
-    m = re.search(r"who\s+is\s+(.+)", q)
-    if m:
-        target = m.group(1).strip()
-        matches = [
-            row
-            for row in context_rows
-            if target in row["name"].lower() or target in row["employee_id"].lower()
-        ]
-        if not matches:
-            return (
-                f"I could not find anyone matching \"{target}\" in the current register. "
-                "Try a different spelling or use an employee ID (for example: EMP-023)."
-            )
-
-        lines = ["Here is what I found:"]
-        for row in matches[:5]:
-            lines.append(
-                f"- {row['name']} ({row['employee_id']}) works in {row['department']} as {row['role']}. "
-                f"They currently show {row['priority'].lower()} priority development needs. "
-                f"Top skills: {row['skills']}. Training focus: {row['training_needs']}."
-            )
-        lines.append(
-            "If you want, I can also suggest a personalized 30-60-90 day learning plan for this person."
-        )
-        return "\n".join(lines)
-
-    cohorts = {}
-    for row in context_rows:
-        needs = [n.strip() for n in row["training_needs"].split(",") if n.strip()]
-        for need in needs:
-            cohorts.setdefault(need, []).append(row)
-
-    top = sorted(cohorts.items(), key=lambda x: len(x[1]), reverse=True)[:6]
-    if not top:
-        return "I could not detect any training-needs patterns yet in the current data."
-
-    lines = ["Great question — here is the strongest pattern I see in your data."]
-    lines.append("\nSuggested cohorts (grouped by shared training need):")
-    for need, rows in top:
-        employees = ", ".join(f"{r['employee_id']}" for r in rows[:8])
-        lines.append(
-            f"- {need}: {len(rows)} employees. Example IDs: {employees}. "
-            f"Recommended action: run one focused cohort session on \"{need}\"."
-        )
-
-    high_priority = [r for r in context_rows if str(r["priority"]).lower() == "high"]
-    if high_priority:
-        ids = ", ".join(r["employee_id"] for r in high_priority[:8])
-        lines.append(
-            f"\nPriority flag: {len(high_priority)} employees are marked High priority "
-            f"(examples: {ids}). These should be scheduled first."
-        )
-
-    lines.append(
-        "\nNote: external DeepSeek access is currently blocked by network DNS/egress, "
-        "so this answer is generated from local analytics on your table."
-    )
-    lines.append(
-        "If you want, ask: \"Create 3 training cohorts with month-by-month schedule\" "
-        "and I will produce a concrete rollout plan."
-    )
-    return "\n".join(lines)
-
-
-def ask_llm(question, context_rows):
-    backend = os.environ.get("AI_BACKEND", "databricks_gateway").strip().lower()
-
-    if backend == "local_only":
-        return ask_local_analytics(question, context_rows), (
-            "AI backend is set to local_only, so responses are generated from local analytics."
-        )
-
-    if backend == "openai_compatible":
-        try:
-            return ask_openai_compatible(question, context_rows), ""
-        except Exception as err:
-            fallback = ask_local_analytics(question, context_rows)
-            notice = (
-                f"OpenAI-compatible backend failed: {err}. Local analytics fallback used. "
-                "Check OPENAI_COMPAT_BASE_URL / OPENAI_COMPAT_API_KEY / OPENAI_COMPAT_MODEL."
-            )
-            return fallback, notice
-
-    try:
-        return ask_deepseek(question, context_rows), ""
-    except Exception as err:
-        fallback = ask_local_analytics(question, context_rows)
-        notice = (
-            f"Databricks gateway backend failed: {err}. Local analytics fallback used. "
-            "If using external providers, verify endpoint permissions and serverless egress policy."
-        )
-        return fallback, notice
-
-
 def insert_employee(conn, form_values):
     required_fields = [
-        "employee_id",
-        "full_name",
-        "department",
-        "role_title",
-        "years_experience",
-        "skills",
-        "training_needs",
-        "recommended_courses",
-        "priority",
-        "target_months",
+        "employee_id", "full_name", "department", "role_title", "years_experience",
+        "skills", "training_needs", "recommended_courses", "priority", "target_months",
     ]
     missing = [field for field in required_fields if not form_values.get(field, "").strip()]
     if missing:
@@ -593,64 +204,32 @@ def insert_employee(conn, form_values):
         raise ValueError("Target months must be between 1 and 36.")
 
     with conn.cursor() as cur:
-        if USE_POSTGRES:
-            cur.execute(
-                f"SELECT COUNT(*) FROM {TABLE_FQN} WHERE employee_id = %s",
-                (employee_id,),
-            )
-            exists = cur.fetchone()[0]
-            if exists:
-                raise ValueError(f"Employee ID {employee_id} already exists.")
-            cur.execute(
-                f"""
-                INSERT INTO {TABLE_FQN} (
-                    employee_id, full_name, department, role_title, years_experience,
-                    skills, training_needs, recommended_courses, priority, target_months, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                """,
-                (
-                    employee_id,
-                    full_name,
-                    department,
-                    role_title,
-                    years_experience,
-                    skills,
-                    training_needs,
-                    recommended_courses,
-                    priority,
-                    target_months,
-                ),
-            )
-        else:
-            cur.execute(
-                f"SELECT COUNT(*) FROM {TABLE_FQN} WHERE employee_id = {sql_quote(employee_id)}"
-            )
-            exists = cur.fetchone()[0]
-            if exists:
-                raise ValueError(f"Employee ID {employee_id} already exists.")
+        cur.execute(f"SELECT COUNT(*) FROM {TABLE_FQN} WHERE employee_id = %s", (employee_id,))
+        exists = cur.fetchone()[0]
+        if exists:
+            raise ValueError(f"Employee ID {employee_id} already exists.")
 
-            cur.execute(
-                f"""
-                INSERT INTO {TABLE_FQN} (
-                    employee_id, full_name, department, role_title, years_experience,
-                    skills, training_needs, recommended_courses, priority, target_months, created_at
-                ) VALUES (
-                    {sql_quote(employee_id)},
-                    {sql_quote(full_name)},
-                    {sql_quote(department)},
-                    {sql_quote(role_title)},
-                    {years_experience},
-                    {sql_quote(skills)},
-                    {sql_quote(training_needs)},
-                    {sql_quote(recommended_courses)},
-                    {sql_quote(priority)},
-                    {target_months},
-                    current_timestamp()
-                )
-                """
-            )
-    if USE_POSTGRES:
-        conn.commit()
+        cur.execute(
+            f"""
+            INSERT INTO {TABLE_FQN} (
+                employee_id, full_name, department, role_title, years_experience,
+                skills, training_needs, recommended_courses, priority, target_months, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (
+                employee_id,
+                full_name,
+                department,
+                role_title,
+                years_experience,
+                skills,
+                training_needs,
+                recommended_courses,
+                priority,
+                target_months,
+            ),
+        )
+    conn.commit()
 
 
 def render_summary_tiles(stats):
@@ -710,8 +289,7 @@ def render_table(employee_rows):
 
 def render_page(saved=False, error_message=""):
     try:
-        warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
-        with get_connection(warehouse_id) as conn:
+        with get_connection() as conn:
             ensure_schema_and_seed(conn)
             stats, department_rows, employee_rows = fetch_dashboard_data(conn)
         summary_tiles = render_summary_tiles(stats)
@@ -724,9 +302,9 @@ def render_page(saved=False, error_message=""):
         table_html = ""
         warning_html = (
             "<div class='error'>"
-            "<strong>Catalog SQL connection error:</strong> "
+            "<strong>Database connection error:</strong> "
             f"{html.escape(str(err))}<br/><br/>"
-            "Make sure your user can access a SQL warehouse and Unity Catalog <code>workspace</code>."
+            "This local copy expects a valid <code>DATABASE_URL</code> (Neon/Postgres)."
             "</div>"
         )
 
@@ -827,9 +405,6 @@ def render_page(saved=False, error_message=""):
         border: 1px solid #e2e8f0;
         border-radius: 8px;
       }}
-      .flash {{
-        margin-bottom: 14px;
-      }}
       .success {{
         background: #ecfdf3;
         border: 1px solid #86efac;
@@ -928,7 +503,7 @@ def render_page(saved=False, error_message=""):
       <h1>Tallent Management Portal</h1>
       <p class="lead">
         Training register with 100 randomly generated employees, their current skills,
-        training needs, and recommended development courses, stored in a Unity Catalog Delta table.
+        training needs, and recommended development courses, stored in Neon/Postgres.
       </p>
       {warning_html}
       {flash_html}
@@ -1042,8 +617,7 @@ class Handler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(content_length).decode("utf-8")
             form_data = {k: v[0] for k, v in parse_qs(raw_body).items()}
-            warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
-            with get_connection(warehouse_id) as conn:
+            with get_connection() as conn:
                 ensure_schema_and_seed(conn)
                 insert_employee(conn, form_data)
             location = "/?saved=1"
@@ -1072,5 +646,5 @@ if __name__ == "__main__":
         or "8000"
     )
     server = HTTPServer(("0.0.0.0", port), Handler)
-    print(f"Serving Databricks app on 0.0.0.0:{port}")
+    print(f"Serving Tallent Management Portal on 0.0.0.0:{port}")
     server.serve_forever()
